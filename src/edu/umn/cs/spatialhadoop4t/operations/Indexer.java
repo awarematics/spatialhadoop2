@@ -8,8 +8,12 @@
  *************************************************************************/
 package edu.umn.cs.spatialhadoop4t.operations;
 
+import java.awt.Graphics;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Vector;
 
@@ -20,6 +24,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.ClusterStatus;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
@@ -31,9 +36,18 @@ import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.util.GenericOptionsParser;
+import org.apache.tajo.datum.Datum;
 import org.apache.tajo.storage.FileTablespace;
+import org.apache.tajo.storage.Scanner;
+import org.apache.tajo.storage.SeekableScanner;
+import org.apache.tajo.storage.Tuple;
+import org.apache.tajo.storage.VTuple;
 
 import com.vividsolutions.jts.geom.Envelope;
+import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.io.ParseException;
+import com.vividsolutions.jts.io.WKBWriter;
+import com.vividsolutions.jts.io.WKTReader;
 
 import edu.umn.cs.spatialHadoop.OperationsParams;
 import edu.umn.cs.spatialHadoop.core.Point;
@@ -52,6 +66,7 @@ import edu.umn.cs.spatialHadoop.indexing.QuadTreePartitioner;
 import edu.umn.cs.spatialHadoop.indexing.RTreeLocalIndexer;
 import edu.umn.cs.spatialHadoop.indexing.STRPartitioner;
 import edu.umn.cs.spatialHadoop.indexing.ZCurvePartitioner;
+import edu.umn.cs.spatialHadoop.io.TextSerializerHelper;
 import edu.umn.cs.spatialHadoop.mapreduce.RTreeRecordReader3;
 import edu.umn.cs.spatialHadoop.mapreduce.SpatialInputFormat3;
 import edu.umn.cs.spatialHadoop.mapreduce.SpatialRecordReader3;
@@ -102,7 +117,244 @@ public class Indexer {
 		LocalIndexes.put("r+tree", RTreeLocalIndexer.class);
 	}
 
+	// @author : Kwang Woo Nam
+	// @param type : local or mpareduce
+	// @return
 
+	private void indexSpatialLocal( TableStoreFile inTable, int attrNum, Envelope mbr, 
+			String indexKind, int samplingCount, TableStoreFile outTable,
+			OperationsParams params ) throws IOException, InterruptedException
+	{
+		Sampler sampler = new Sampler();
+		Point[] points = null;
+		Partitioner partitioner = null;
+		Rectangle inMBR = null;
+
+		// Setting for Table Reader
+		IndexTupleIterator reader = makeTableIteratorLocal( inTable, attrNum );
+		
+		// Sampling for partitions
+		points = sampler.samplingPointsLocal ( inTable, attrNum, samplingCount );	  
+		
+		// Making spatial partitions
+		partitioner = createPartitioner( indexKind );
+		int samplePerPartition = getSamplePerPartition( inTable, points.length );
+		inMBR = new Rectangle( mbr.getMinX(), mbr.getMinY(), mbr.getMaxX(), mbr.getMaxY());
+		partitioner.createFromPoints( inMBR, points, samplePerPartition );
+		
+		// Setting for Index Writer 
+		Job job = Job.getInstance(params);
+		final Configuration conf = job.getConfiguration();
+		boolean replicate = PartitionerReplicate.get( indexKind );
+		
+		this.setLocalIndexer( conf, indexKind );
+		final IndexRecordWriter<Shape> writer = new IndexRecordWriter<Shape>(
+				partitioner, replicate, indexKind, outTable.getPath(), conf);		
+
+		// Write partition files
+		writeIndex( partitioner, replicate, reader, writer );
+		
+		// Write Index Files
+		writer.close(null);
+	}
+ 
+	protected IndexTupleIterator makeTableIteratorLocal( TableStoreFile inTable, int attrNum ) 
+			throws IOException 
+	{
+		SeekableScanner scanner = inTable.getFileScanner();
+		
+		IndexTupleIterator iter = new IndexTupleIterator( scanner, attrNum );
+		
+		return iter;
+	}
+	
+	public class SpatialIndexTuple implements Shape
+	{
+		public Rectangle spatialKey;
+		public long rowid;
+		public SpatialIndexTuple( Rectangle key, long rowid )
+		{
+			this.spatialKey = key;
+			this.rowid = rowid;
+		}
+		
+		@Override
+		public void readFields(DataInput in ) throws IOException 
+		{
+			if ( spatialKey == null )
+				spatialKey = new Rectangle();
+			
+			this.spatialKey.readFields(in);
+		    this.rowid = in.readLong();
+		}
+
+		@Override
+		public void write(DataOutput out ) throws IOException {
+			spatialKey.write( out );
+			out.writeLong( rowid );
+		}
+
+		@Override
+		public Text toText(Text text) {
+		    TextSerializerHelper.serializeDouble( spatialKey.x1, text, ',');
+		    TextSerializerHelper.serializeDouble( spatialKey.y1, text, ',');
+		    TextSerializerHelper.serializeDouble( spatialKey.x2, text, ',');
+		    TextSerializerHelper.serializeDouble( spatialKey.y2, text, ',');
+		    TextSerializerHelper.serializeLong( rowid, text, '\0');
+
+		    return text;
+		}
+
+		@Override
+		public void fromText(Text text) {
+		    spatialKey.x1 = TextSerializerHelper.consumeDouble(text, ',');
+		    spatialKey.y1 = TextSerializerHelper.consumeDouble(text, ',');
+		    spatialKey.x2 = TextSerializerHelper.consumeDouble(text, ',');
+		    spatialKey.y2 = TextSerializerHelper.consumeDouble(text, ',');
+		    rowid = TextSerializerHelper.consumeLong(text, '\0');			
+		}
+
+		@Override
+		public Rectangle getMBR() {
+			return spatialKey.getMBR();
+		}
+
+		@Override
+		public double distanceTo(double x, double y) {
+			return spatialKey.distanceTo( x, y );
+		}
+
+		@Override
+		public boolean isIntersected(Shape s) {
+			return spatialKey.isIntersected(s);
+		}
+
+		@Override
+		public Shape clone() {
+			return new SpatialIndexTuple( spatialKey.clone(), rowid );
+		}
+
+		@Override
+		public void draw(Graphics g, Rectangle fileMBR, int imageWidth,
+				int imageHeight, double scale) {
+			spatialKey.draw( g, fileMBR, imageWidth, imageHeight, scale );
+		}
+
+		@Override
+		public void draw(Graphics g, double xscale, double yscale) {
+			spatialKey.draw( g, xscale, yscale);
+		}		
+	}
+	
+	public class IndexTupleIterator implements Iterator<SpatialIndexTuple>
+	{
+		Scanner scanner = null;
+		int geoAttrNum = 0;
+		SpatialIndexTuple nextTuple = null;
+		WKTReader wktReader = new WKTReader();
+
+		public IndexTupleIterator( Scanner scanner, int geoAttrNum )
+		{
+			this.scanner = scanner;
+			this.geoAttrNum = geoAttrNum;
+		}
+		
+		@Override
+		public boolean hasNext() {
+			
+			try {
+				Tuple tuple = scanner.next();
+				
+				if ( tuple == null )
+					return false;
+				
+				Datum d = tuple.asDatum( geoAttrNum );
+				Geometry geo = wktReader.read( d.asChars() );				
+				Envelope mbr = geo.getEnvelopeInternal();
+				Rectangle rect = new Rectangle( mbr.getMinX(), mbr.getMinY(), mbr.getMaxX(), mbr.getMaxY() );
+				
+				long rowid = tuple.getOffset();
+				
+				nextTuple = new SpatialIndexTuple( rect, rowid );
+
+			} catch (IOException e) {
+				e.printStackTrace();
+				nextTuple = null;
+				return false;
+			} catch (ParseException e) {
+				e.printStackTrace();
+				return false;
+			}	
+			
+			return true;
+		}
+
+		@Override
+		public SpatialIndexTuple next() {
+			return nextTuple;
+		}
+
+		@Override
+		public void remove() {
+			// TODO Auto-generated method stub
+			// do nothing
+		}
+		
+		public void close()
+		{
+			try {
+				scanner.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			wktReader = null;
+		}
+	}
+	
+	private int getSamplePerPartition( TableStoreFile inTable, int sampleCount ) throws IOException
+	{
+		long inSize = inTable.calculateSize();
+		long estimatedOutSize = (long) (inSize * (1.0 + INDEXING_OVERHEAD));
+		long outBlockSize = inTable.getDefaultBlockSize();
+		int partitionCapacity = (int) Math.max(1, Math.floor( sampleCount * outBlockSize / estimatedOutSize));
+		
+		return partitionCapacity;
+	}	
+
+	public void writeIndex( Partitioner partitioner, boolean replicate,
+			IndexTupleIterator reader, final IndexRecordWriter<Shape> recordWriter ) 
+					throws IOException, InterruptedException
+	{
+		final IntWritable partitionID = new IntWritable();
+
+		while ( reader.hasNext() ) {
+			final SpatialIndexTuple tuple = reader.next();
+			if (replicate) {
+					partitioner.overlapPartitions( tuple, new ResultCollector<Integer>() {
+						@Override
+						public void collect(Integer id) {
+							partitionID.set(id);
+							try {
+								recordWriter.write(partitionID, tuple);
+							} catch (IOException e) {
+								throw new RuntimeException(e);
+							}
+						}
+					});
+				
+			} else {
+					int pid = partitioner.overlapPartition( tuple );
+					if (pid != -1) {
+						partitionID.set(pid);
+						recordWriter.write(partitionID, tuple );
+					}
+			}
+		}
+		reader.close();
+	}
+	
 	public Partitioner createPartitioner( String partitionerName ) 
 			throws IOException
 	{
@@ -136,232 +388,12 @@ public class Indexer {
 	 * @param job
 	 * @param sindex
 	 */
-	private static void setLocalIndexer(Configuration conf, String sindex) {
+	private void setLocalIndexer(Configuration conf, String sindex) {
 		Class<? extends LocalIndexer> localIndexerClass = LocalIndexes.get(sindex);
 		if (localIndexerClass != null)
 			conf.setClass(LocalIndexer.LocalIndexerClass, localIndexerClass, LocalIndexer.class);
 	}
-
-	public static Partitioner createPartitioner(Path in, Path out,
-			Configuration job, String partitionerName) throws IOException {
-		return createPartitioner(new Path[] {in}, out, job, partitionerName);
-	}
-
-	/***
-	 * Create a partitioner for a particular job
-	 * @param in
-	 * @param out
-	 * @param job
-	 * @param partitionerName
-	 * @return
-	 * @throws IOException
-	 */
-	public static Partitioner createPartitioner(Path[] ins, Path out,
-			Configuration job, String partitionerName) throws IOException {
-		try {
-			Partitioner partitioner = null;
-			Class<? extends Partitioner> partitionerClass =
-					PartitionerClasses.get(partitionerName.toLowerCase());
-			if (partitionerClass == null) {
-				// Try to parse the name as a class name
-				try {
-					partitionerClass = Class.forName(partitionerName).asSubclass(Partitioner.class);
-				} catch (ClassNotFoundException e) {
-					throw new RuntimeException("Unknown index type '"+partitionerName+"'");
-				}
-			}
-
-			if (PartitionerReplicate.containsKey(partitionerName.toLowerCase())) {
-				boolean replicate = PartitionerReplicate.get(partitionerName.toLowerCase());
-				job.setBoolean("replicate", replicate);
-			}
-			partitioner = partitionerClass.newInstance();
-
-			long t1 = System.currentTimeMillis();
-			final Rectangle inMBR = (Rectangle) OperationsParams.getShape(job, "mbr");
-			// Determine number of partitions
-			long inSize = 0;
-			for (Path in : ins) {
-				inSize += FileUtil.getPathSize(in.getFileSystem(job), in);
-			}
-			long estimatedOutSize = (long) (inSize * (1.0 + job.getFloat(SpatialSite.INDEXING_OVERHEAD, 0.1f)));
-			FileSystem outFS = out.getFileSystem(job);
-			long outBlockSize = outFS.getDefaultBlockSize(out);
-
-			final Vector<Point> sample = new Vector<Point>();
-			float sample_ratio = job.getFloat(SpatialSite.SAMPLE_RATIO, 0.01f);
-			long sample_size = job.getLong(SpatialSite.SAMPLE_SIZE, 100 * 1024 * 1024);
-
-			LOG.info("Reading a sample of "+(int)Math.round(sample_ratio*100) + "%");
-			ResultCollector<Point> resultCollector = new ResultCollector<Point>(){
-				@Override
-				public void collect(Point p) {
-					sample.add(p.clone());
-				}
-			};
-
-			OperationsParams params2 = new OperationsParams();
-			params2.setFloat("ratio", sample_ratio);
-			params2.setLong("size", sample_size);
-			if (job.get("shape") != null)
-				params2.set("shape", job.get("shape"));
-			if (job.get("local") != null)
-				params2.set("local", job.get("local"));
-			params2.setClass("outshape", Point.class, Shape.class);
-			//Sampler.sample(ins, resultCollector, params2);
-			long t2 = System.currentTimeMillis();
-			System.out.println("Total time for sampling in millis: "+(t2-t1));
-			LOG.info("Finished reading a sample of "+sample.size()+" records");
-
-			int partitionCapacity = (int) Math.max(1, Math.floor((double)sample.size() * outBlockSize / estimatedOutSize));
-			int numPartitions = Math.max(1, (int) Math.ceil((float)estimatedOutSize / outBlockSize));
-			LOG.info("Partitioning the space into "+numPartitions+" partitions with capacity of "+partitionCapacity);
-
-			partitioner.createFromPoints(inMBR, sample.toArray(new Point[sample.size()]), partitionCapacity);
-
-			return partitioner;
-		} catch (InstantiationException e) {
-			e.printStackTrace();
-			return null;
-		} catch (IllegalAccessException e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
-
-
-	// @author : Kwang Woo Nam
-	// @param type : local or mpareduce
-	// @return
-
-	private void indexSpatialLocal( TableStoreFile inTable, int attrNum, Envelope mbr, String indexKind, int samplingCount, TableStore outTable ) 
-			throws IOException
-	{
-		Sampler sampler = new Sampler();
-		Point[] points = null;
-		Partitioner partitioner = null;
-		Rectangle inMBR = null;
-
-		points = sampler.samplingPointsLocal ( inTable, attrNum, samplingCount );	  
-		inMBR = new Rectangle( mbr.getMinX(), mbr.getMinY(), mbr.getMaxX(), mbr.getMaxY());
-		
-		partitioner = createPartitioner( indexKind );
-		int samplePerPartition = getSamplePerPartition( inTable, points.length );
-		partitioner.createFromPoints( inMBR, points, samplePerPartition );
-
-	}
-
-	private int getSamplePerPartition( TableStoreFile inTable, int sampleCount ) throws IOException
-	{
-		long inSize = inTable.calculateSize();
-		long estimatedOutSize = (long) (inSize * (1.0 + INDEXING_OVERHEAD));
-		long outBlockSize = inTable.getDefaultBlockSize();
-		int partitionCapacity = (int) Math.max(1, Math.floor( sampleCount * outBlockSize / estimatedOutSize));
-		
-		return partitionCapacity;
-
-	}
 	
-	public static void indexWrite( Partitioner partitioner, boolean replicate,
-			RecordReader<Rectangle, Iterable<Shape>> reader, final IndexRecordWriter<Shape> recordWriter ) 
-					throws IOException, InterruptedException
-	{
-		final IntWritable partitionID = new IntWritable();
-
-		while (reader.nextKeyValue()) {
-			Iterable<Shape> shapes = reader.getCurrentValue();
-			if (replicate) {
-				for (final Shape s : shapes) {
-					partitioner.overlapPartitions(s, new ResultCollector<Integer>() {
-						@Override
-						public void collect(Integer id) {
-							partitionID.set(id);
-							try {
-								recordWriter.write(partitionID, s);
-							} catch (IOException e) {
-								throw new RuntimeException(e);
-							}
-						}
-					});
-				}
-			} else {
-				for (final Shape s : shapes) {
-					int pid = partitioner.overlapPartition(s);
-					if (pid != -1) {
-						partitionID.set(pid);
-						recordWriter.write(partitionID, s);
-					}
-				}
-			}
-		}
-		reader.close();
-	}
-
-
-	private static void indexLocal(Path inPath, final Path outPath,
-			OperationsParams params) throws IOException, InterruptedException {
-		Job job = Job.getInstance(params);
-		final Configuration conf = job.getConfiguration();
-
-		final String sindex = conf.get("sindex");
-
-		// Start reading input file
-		Vector<InputSplit> splits = new Vector<InputSplit>();
-		final SpatialInputFormat3<Rectangle, Shape> inputFormat = new SpatialInputFormat3<Rectangle, Shape>();
-		FileSystem inFs = inPath.getFileSystem(conf);
-		FileStatus inFStatus = inFs.getFileStatus(inPath);
-		if (inFStatus != null && !inFStatus.isDir()) {
-			// One file, retrieve it immediately.
-			// This is useful if the input is a hidden file which is automatically
-			// skipped by FileInputFormat. We need to plot a hidden file for the case
-			// of plotting partition boundaries of a spatial index
-			splits.add(new FileSplit(inPath, 0, inFStatus.getLen(), new String[0]));
-		} else {
-			SpatialInputFormat3.setInputPaths(job, inPath);
-			for (InputSplit s : inputFormat.getSplits(job))
-				splits.add(s);
-		}
-
-		// Copy splits to a final array to be used in parallel
-		final FileSplit[] fsplits = splits.toArray(new FileSplit[splits.size()]);
-		final boolean replicate = conf.getBoolean("replicate", false);
-
-		// Set input file MBR if not already set
-		Rectangle inputMBR = (Rectangle) OperationsParams.getShape(conf, "mbr");
-		if (inputMBR == null) {
-			inputMBR = FileMBR.fileMBR(inPath, new OperationsParams(conf));
-			OperationsParams.setShape(conf, "mbr", inputMBR);
-		}
-
-		setLocalIndexer(conf, sindex);
-		final Partitioner partitioner = createPartitioner(inPath, outPath, conf, sindex);
-
-		final IndexRecordWriter<Shape> writer = new IndexRecordWriter<Shape>(
-				partitioner, replicate, sindex, outPath, conf);
-		for (FileSplit fsplit : fsplits) {
-			RecordReader<Rectangle, Iterable<Shape>> reader = inputFormat.createRecordReader(fsplit, null);
-			if (reader instanceof SpatialRecordReader3) {
-				((SpatialRecordReader3)reader).initialize(fsplit, conf);
-			} else if (reader instanceof RTreeRecordReader3) {
-				((RTreeRecordReader3)reader).initialize(fsplit, conf);
-			} else if (reader instanceof HDFRecordReader) {
-				((HDFRecordReader)reader).initialize(fsplit, conf);
-			} else {
-				throw new RuntimeException("Unknown record reader");
-			}
-			
-			indexWrite( partitioner, replicate, reader, writer );
-		}
-		
-		writer.close(null);
-	}
-
-	public static Job index(Path inPath, Path outPath, OperationsParams params)
-			throws IOException, InterruptedException, ClassNotFoundException {
-		indexLocal(inPath, outPath, params);
-		return null;
-	}
-
 	// updated : 2015.06.09 Kwang Woo Nam
 	//           Added Spatial Column Attribute and Primary Key Column Attribute Options
 	protected static void printUsage() {
@@ -399,7 +431,7 @@ public class Indexer {
 
 		// The spatial index to use
 		long t1 = System.currentTimeMillis();
-		index(inputPath, outputPath, params);
+		// index(inputPath, outputPath, params);
 		long t2 = System.currentTimeMillis();
 		System.out.println("Total indexing time in millis "+(t2-t1));
 	}

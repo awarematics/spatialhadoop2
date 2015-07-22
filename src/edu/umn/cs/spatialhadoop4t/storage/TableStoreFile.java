@@ -50,4 +50,9 @@ public class TableStoreFile
 		FileSystem fileSystem = path.getFileSystem(conf);
 		return fileSystem.getDefaultBlockSize( path );
 	}
+	
+	public Path getPath()
+	{
+		return path;
+	}
 }

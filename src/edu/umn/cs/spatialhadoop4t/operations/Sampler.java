@@ -237,7 +237,6 @@ public class Sampler {
 		
 		scanner = tableStore.getFileScanner();
 		fileSize = tableStore.calculateSize();
-		result = convertToMBR( sampledResult );
 		
 		samplingAttrLocal( scanner, (long)fileSize, count, attrNum, 
 				new ResultCollector<Datum>() 
@@ -308,9 +307,8 @@ public class Sampler {
 				--i;
 				break;
 			}
-
-			
-			output.collect( tempTuple.getValues()[attrNum] );
+						
+			output.collect( tempTuple.getValues()[attrNum-1] );
 		}
 		
 		return i;
@@ -337,7 +335,7 @@ public class Sampler {
 		System.out.println("<input file> - (*) Path to input file");
 		System.out.println("fileType:string- Type of the file( csv, ...)");
 		System.out.println("numOfAttrs:int - Total number of attributes in the table/file");
-		System.out.println("geoAttr:int - Input spatial attribute[0-]");
+		System.out.println("geoAttr:int - Input spatial attribute[1-]");
 		System.out.println("geoAttrType:string - Type of Input spatial attribute");
 		System.out.println("sampleCount:int - Number of sampled tuples");
 		System.out.println("sampleType:string - Target spatial type(point/mbr)");

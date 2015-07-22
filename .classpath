@@ -2,9 +2,6 @@
 <classpath>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="lib/hdflib/jhdf.jar"/>
-	<classpathentry kind="lib" path="lib/hdflib/jhdf4obj.jar"/>
-	<classpathentry kind="lib" path="lib/hdflib/jhdfobj.jar"/>
 	<classpathentry kind="lib" path="lib/javax.mail.jar"/>
 	<classpathentry kind="lib" path="lib/ivy/common/ant-1.6.5.jar"/>
 	<classpathentry kind="lib" path="lib/ivy/common/antlr-2.7.7.jar"/>
@@ -95,5 +92,10 @@
 	<classpathentry kind="lib" path="lib/tajo-storage-hdfs-0.11.0-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="lib/tajo-catalog-common-0.11.0-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.5.0.jar"/>
+	<classpathentry kind="lib" path="lib/netty-buffer-4.0.29.Final.jar"/>
+	<classpathentry kind="lib" path="lib/guava-18.0.jar"/>
+	<classpathentry kind="lib" path="lib/netty-common-4.0.29.Final.jar"/>
+	<classpathentry kind="lib" path="lib/hadoop-hdfs-2.7.1.jar"/>
+	<classpathentry kind="lib" path="lib/hadoop-common-2.7.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
