@@ -268,7 +268,7 @@ public class Indexer {
 				if ( tuple == null )
 					return false;
 				
-				Datum d = tuple.asDatum( geoAttrNum );
+				Datum d = tuple.get( geoAttrNum );
 				Geometry geo = wktReader.read( d.asChars() );				
 				Envelope mbr = geo.getEnvelopeInternal();
 				Rectangle rect = new Rectangle( mbr.getMinX(), mbr.getMinY(), mbr.getMaxX(), mbr.getMaxY() );

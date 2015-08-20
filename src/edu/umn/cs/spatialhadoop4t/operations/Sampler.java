@@ -43,6 +43,7 @@ import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.tajo.catalog.CatalogUtil;
 import org.apache.tajo.catalog.Schema;
 import org.apache.tajo.catalog.TableMeta;
+import org.apache.tajo.catalog.proto.CatalogProtos.StoreType;
 import org.apache.tajo.common.TajoDataTypes.Type;
 import org.apache.tajo.common.type.TajoTypeUtil;
 import org.apache.tajo.conf.TajoConf;
@@ -51,13 +52,14 @@ import org.apache.tajo.storage.FileTablespace;
 import org.apache.tajo.storage.Scanner;
 import org.apache.tajo.storage.SeekableScanner;
 import org.apache.tajo.storage.StorageUtil;
-import org.apache.tajo.storage.TableSpaceManager;
+import org.apache.tajo.storage.TablespaceManager;
 import org.apache.tajo.storage.Tablespace;
 import org.apache.tajo.storage.Tuple;
 import org.apache.tajo.storage.fragment.FileFragment;
 import org.apache.tajo.storage.fragment.Fragment;
 import org.apache.tajo.util.CommonTestingUtil;
 
+import com.google.common.base.Optional;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
@@ -87,7 +89,7 @@ public class Sampler {
 	
 	private static final Log LOG = LogFactory.getLog(Sampler.class);
 	private TajoConf conf = null;
-	private FileTablespace tableSpace = null;
+	private Optional<Tablespace> optTableSpace = null;
 	private Path path = null;
 	private TableMeta meta = null;
 	private Schema schema = null;
@@ -95,7 +97,7 @@ public class Sampler {
 	private String orgType = null;
 	private String targetType = null;	 
 	
-	public void init( String inputPath, String fileType, int numOfAttrs, int geoAttr, 
+	public void init( String inputPath, String table, StoreType fileType, int numOfAttrs, int geoAttr, 
 			String geoType, String targetType ) 
 			throws IOException
 	{
@@ -111,7 +113,7 @@ public class Sampler {
 		this.schema = makeSchema( names, types );		
 	
 		conf = new TajoConf();
-		tableSpace = (FileTablespace)TableSpaceManager.getFileStorageManager( conf );
+		optTableSpace = TablespaceManager.get( table );
 		path = CommonTestingUtil.getTestDir(inputPath);
 	}
 	
@@ -361,7 +363,8 @@ public class Sampler {
 		//init( String fileType, int numOfAttrs, int geoAttr, String geoType, String targetType )
 
 		sTest.init( params.get("path"),
-				params.get("fileType"), 
+				"testTable",
+				StoreType.CSV, 
 				Integer.parseInt( params.get("numOfAttrs")),
 				Integer.parseInt( params.get("geoAttr")),
 				params.get("geoType"),

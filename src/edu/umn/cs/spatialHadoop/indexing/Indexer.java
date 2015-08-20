@@ -58,6 +58,8 @@ public class Indexer {
   private static final Map<String, Class<? extends LocalIndexer>> LocalIndexes;
   private static final Map<String, Boolean> PartitionerReplicate;
   
+  
+  
   static {
     PartitionerClasses = new HashMap<String, Class<? extends Partitioner>>();
     PartitionerClasses.put("grid", GridPartitioner.class);
@@ -140,7 +142,6 @@ public class Indexer {
       }
     }
   }
-
   
   public static class PartitionerReduce<S extends Shape>
     extends Reducer<IntWritable, Shape, IntWritable, Shape> {
