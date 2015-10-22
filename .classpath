@@ -93,20 +93,14 @@
 	<classpathentry kind="lib" path="lib/hadoop-common-2.7.1.jar"/>
 	<classpathentry kind="lib" path="lib/hadoop-mapreduce-client-core-2.7.1.jar"/>
 	<classpathentry kind="lib" path="lib/tajolib/tajo-algebra-0.10.1.jar"/>
-	<classpathentry kind="lib" path="lib/tajolib/tajo-catalog-client-0.10.1.jar"/>
-	<classpathentry kind="lib" path="lib/tajolib/tajo-catalog-common-0.10.1.jar"/>
 	<classpathentry kind="lib" path="lib/tajolib/tajo-catalog-server-0.10.1.jar"/>
 	<classpathentry kind="lib" path="lib/tajolib/tajo-cli-0.10.1.jar"/>
 	<classpathentry kind="lib" path="lib/tajolib/tajo-client-0.10.1.jar"/>
-	<classpathentry kind="lib" path="lib/tajolib/tajo-common-0.10.1.jar"/>
 	<classpathentry kind="lib" path="lib/tajolib/tajo-core-0.10.1.jar"/>
 	<classpathentry kind="lib" path="lib/tajolib/tajo-hcatalog-0.10.1.jar"/>
 	<classpathentry kind="lib" path="lib/tajolib/tajo-plan-0.10.1.jar"/>
 	<classpathentry kind="lib" path="lib/tajolib/tajo-pullserver-0.10.1.jar"/>
 	<classpathentry kind="lib" path="lib/tajolib/tajo-rpc-0.10.1.jar"/>
-	<classpathentry kind="lib" path="lib/tajolib/tajo-storage-common-0.11.0-SNAPSHOT.jar"/>
-	<classpathentry kind="lib" path="lib/tajolib/tajo-storage-hbase-0.11.0-SNAPSHOT.jar"/>
-	<classpathentry kind="lib" path="lib/tajolib/tajo-storage-hdfs-0.11.0-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="lib/hadoop/mapreduce/hadoop-mapreduce-client-app-2.7.1.jar"/>
 	<classpathentry kind="lib" path="lib/hadoop/mapreduce/hadoop-mapreduce-client-common-2.7.1.jar"/>
 	<classpathentry kind="lib" path="lib/hadoop/mapreduce/hadoop-mapreduce-client-core-2.7.1.jar"/>

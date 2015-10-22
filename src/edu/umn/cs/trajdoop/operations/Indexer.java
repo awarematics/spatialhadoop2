@@ -6,7 +6,7 @@
  * http://www.opensource.org/licenses/apache2.0.php.
  *
  *************************************************************************/
-package edu.umn.cs.spatialhadoop4t.operations;
+package edu.umn.cs.trajdoop.operations;
 
 import java.awt.Graphics;
 import java.io.DataInput;
@@ -37,11 +37,6 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.tajo.datum.Datum;
-import org.apache.tajo.storage.FileTablespace;
-import org.apache.tajo.storage.Scanner;
-import org.apache.tajo.storage.SeekableScanner;
-import org.apache.tajo.storage.Tuple;
-import org.apache.tajo.storage.VTuple;
 
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
@@ -73,8 +68,13 @@ import edu.umn.cs.spatialHadoop.mapreduce.SpatialRecordReader3;
 import edu.umn.cs.spatialHadoop.nasa.HDFRecordReader;
 import edu.umn.cs.spatialHadoop.operations.FileMBR;
 import edu.umn.cs.spatialHadoop.util.FileUtil;
-import edu.umn.cs.spatialhadoop4t.storage.TableStore;
-import edu.umn.cs.spatialhadoop4t.storage.TableStoreFile;
+import edu.umn.cs.trajdoop.storage.TableStore;
+import edu.umn.cs.trajdoop.storage.TableStoreFile;
+import edu.umn.cs.trajdoop.tajo.common.Scanner;
+import edu.umn.trajdoop.tajo.hdfs.FileTablespace;
+import edu.umn.trajdoop.tajo.hdfs.SeekableScanner;
+import edu.umn.trajdoop.tajo.hdfs.Tuple;
+import edu.umn.trajdoop.tajo.hdfs.VTuple;
 
 /**
  * @author Ahmed Eldawy and Kwang Woo Nam

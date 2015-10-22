@@ -1,4 +1,4 @@
-package edu.umn.cs.spatialhadoop4t.storage;
+package edu.umn.cs.trajdoop.storage;
 
 import java.io.IOException;
 
@@ -7,16 +7,16 @@ import org.apache.hadoop.fs.Path;
 import org.apache.tajo.catalog.Schema;
 import org.apache.tajo.catalog.TableMeta;
 import org.apache.tajo.conf.TajoConf;
-import org.apache.tajo.storage.FileTablespace;
-import org.apache.tajo.storage.Scanner;
-import org.apache.tajo.storage.SeekableScanner;
-import org.apache.tajo.storage.TablespaceManager;
-import org.apache.tajo.storage.Tablespace;
-import org.apache.tajo.storage.TablespaceManager;
 
 import com.google.common.base.Optional;
 import com.sun.org.apache.commons.logging.Log;
 import com.sun.org.apache.commons.logging.LogFactory;
+
+import edu.umn.cs.trajdoop.tajo.common.Scanner;
+import edu.umn.trajdoop.tajo.hdfs.FileTablespace;
+import edu.umn.trajdoop.tajo.hdfs.SeekableScanner;
+import edu.umn.trajdoop.tajo.hdfs.Tablespace;
+import edu.umn.trajdoop.tajo.hdfs.TablespaceManager;
 
 public class TableStoreFile 
 {

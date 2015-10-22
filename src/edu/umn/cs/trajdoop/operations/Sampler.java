@@ -6,7 +6,7 @@
  * http://www.opensource.org/licenses/apache2.0.php.
  *
  *************************************************************************/
-package edu.umn.cs.spatialhadoop4t.operations;
+package edu.umn.cs.trajdoop.operations;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,15 +48,6 @@ import org.apache.tajo.common.TajoDataTypes.Type;
 import org.apache.tajo.common.type.TajoTypeUtil;
 import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.datum.Datum;
-import org.apache.tajo.storage.FileTablespace;
-import org.apache.tajo.storage.Scanner;
-import org.apache.tajo.storage.SeekableScanner;
-import org.apache.tajo.storage.StorageUtil;
-import org.apache.tajo.storage.TablespaceManager;
-import org.apache.tajo.storage.Tablespace;
-import org.apache.tajo.storage.Tuple;
-import org.apache.tajo.storage.fragment.FileFragment;
-import org.apache.tajo.storage.fragment.Fragment;
 import org.apache.tajo.util.CommonTestingUtil;
 
 import com.google.common.base.Optional;
@@ -76,7 +67,16 @@ import edu.umn.cs.spatialHadoop.io.TextSerializable;
 import edu.umn.cs.spatialHadoop.mapred.ShapeLineInputFormat;
 import edu.umn.cs.spatialHadoop.mapred.ShapeLineRecordReader;
 import edu.umn.cs.spatialHadoop.mapred.TextOutputFormat;
-import edu.umn.cs.spatialhadoop4t.storage.TableStoreFile;
+import edu.umn.cs.trajdoop.storage.TableStoreFile;
+import edu.umn.cs.trajdoop.tajo.common.Scanner;
+import edu.umn.trajdoop.tajo.hdfs.FileTablespace;
+import edu.umn.trajdoop.tajo.hdfs.SeekableScanner;
+import edu.umn.trajdoop.tajo.hdfs.StorageUtil;
+import edu.umn.trajdoop.tajo.hdfs.Tablespace;
+import edu.umn.trajdoop.tajo.hdfs.TablespaceManager;
+import edu.umn.trajdoop.tajo.hdfs.Tuple;
+import edu.umn.trajdoop.tajo.hdfs.fragment.FileFragment;
+import edu.umn.trajdoop.tajo.hdfs.fragment.Fragment;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 
